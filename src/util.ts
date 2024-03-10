@@ -2,6 +2,8 @@ import { Browser, Page } from 'puppeteer';
 import puppeteer from 'puppeteer-extra';
 import stealthPlugin from 'puppeteer-extra-plugin-stealth';
 import winston from 'winston';
+import fs from 'fs/promises'
+import { Config } from './validations';
 
 puppeteer.use(stealthPlugin());
 
@@ -82,4 +84,16 @@ export function extractDomain(url: string): string | null {
         console.error('Error parsing URL:', error);
         return null;
     }
+}
+
+/**
+ * Throws error if config file JSON schema is not correct
+ * @param filePath 
+ * @returns 
+ */
+export async function readConfigfileAndValidateSchema(filePath: string) {
+    const fileData = fs.readFile(filePath);
+    const parsedData = JSON.parse((await fileData).toString());
+
+    return Config.parse(parsedData);
 }

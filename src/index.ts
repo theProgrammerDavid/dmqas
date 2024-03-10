@@ -1,10 +1,12 @@
-import type { Page } from 'puppeteer'
-import CONFIG from '../config';
-import { setupBrowser, setupPage, sleep } from './util';
+import type { Browser, Page } from 'puppeteer'
+import { readConfigfileAndValidateSchema, setupBrowser, setupPage, sleep } from './util';
 import { ACTIONS, Action, ClickHTMLElementAction, DelayAction, ElementExistsAction, PageExitAction, ScreenshotAction, ScrollAction, WaitForNetworkIdleAction } from './models/Actions';
-import { iPage } from './models';
 import { createLogger } from './util';
 import winston from 'winston';
+
+import { Flow } from './validations'
+import { args } from './cliParser';
+import { z } from 'zod'
 
 async function doSomething(page: Page, a: any[], logger: winston.Logger) {
     let x: Action | undefined;
@@ -38,7 +40,7 @@ async function doSomething(page: Page, a: any[], logger: winston.Logger) {
     await x.execute()
 }
 
-async function doSomethingAgain(f: iPage, logger: winston.Logger) {
+async function doSomethingAgain(f: z.infer<typeof Flow>, logger: winston.Logger) {
     const page = await setupPage();
     await page.goto(f.url, { timeout: 60 * 60 * 60 });
 
@@ -48,21 +50,34 @@ async function doSomethingAgain(f: iPage, logger: winston.Logger) {
 }
 
 async function main() {
-    const browser = await setupBrowser({ headless: CONFIG.headless });
 
-    const x = [];
-    const loggers = [];
+    let browser: Browser;
 
-    for (let i = 0; i < CONFIG.flows.length; i++) {
-        const flow = CONFIG.flows[i];
-        loggers.push(createLogger('info', 'app' + i + '.log'))
+    try {
+        browser = await setupBrowser({ headless: args.headless });
+        const configFile = await readConfigfileAndValidateSchema(args.config)
 
-        x.push(doSomethingAgain(flow, loggers[i]));
+        const x = [];
+        const loggers = [];
+
+        for (let i = 0; i < configFile.flows.length; i++) {
+            const flow = configFile.flows[i];
+            loggers.push(createLogger('info', 'app' + i + '.log'))
+
+            x.push(doSomethingAgain(flow, loggers[i]));
+        }
+
+        await Promise.all(x)
+
+        browser.close()
     }
-
-    await Promise.all(x)
-
-    browser.close()
+    catch (err) {
+        if (err instanceof z.ZodError) {
+            console.log(`File ${args.config} has an error in the schema`);
+            console.log(err.issues)
+        }
+        process.exit(1)
+    }
 }
 
 main()
