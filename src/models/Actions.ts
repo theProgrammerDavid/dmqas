@@ -1,6 +1,9 @@
 import { Page } from "puppeteer";
 import type { Logger } from "winston";
-import { extractDomain, sleep } from "../util";
+import { extractDomain, genHeatmapFileName, genNewImageFilename, sleep } from "../util";
+import fs from 'fs'
+import path from 'path'
+import { spawnImageDiff } from "../commandRunner";
 
 export type ACTIONS = "WaitForNetworkIdleAction"
     | "ScreenshotAction"
@@ -46,13 +49,37 @@ export class ScreenshotAction extends Action {
     fileName: string;
     constructor(page: Page, logger: Logger, fileName: string) {
         super(page, logger)
-
         this.fileName = fileName;
     }
 
     async execute(): Promise<any> {
-        this.logger.info('taking screenshot')
-        await this.page.screenshot({ path: this.fileName })
+        let filePath = `screenshots/${this.fileName}`
+        const resolvePath = path.resolve(__dirname, '..', '..', filePath)
+        if (fs.existsSync(resolvePath)) {
+            console.log('screenshot exists, comparing');
+
+            const newFilePath = genNewImageFilename(`screenshots/${this.fileName}`)
+            const heatmapFilePath = genHeatmapFileName(`screenshots/${this.fileName}`)
+
+            await this.page.screenshot({ path: newFilePath })
+
+            const x = path.resolve(__dirname, '..', '..', filePath);
+            const y = path.resolve(__dirname, '..', '..', newFilePath)
+            const z = path.resolve(__dirname, '..', '..', heatmapFilePath)
+
+            const output = await spawnImageDiff(
+                x,
+                y,
+                z
+            ) as string;
+            
+            return output.trim() === 'non zero diff found: true';
+        }
+        else {
+            this.logger.info('taking screenshot');
+            await this.page.screenshot({ path: filePath })
+
+        }
         return;
     }
 }

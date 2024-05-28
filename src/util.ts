@@ -97,3 +97,37 @@ export async function readConfigfileAndValidateSchema(filePath: string) {
 
     return Config.parse(parsedData);
 }
+
+/**
+ * 
+ */
+export function handleErrors(e: Error) {
+    if (e.name) {
+        switch (e.name) {
+            case 'TimeoutError':
+                break;
+        }
+    }
+}
+
+/**
+ * 
+ * @param fileName 
+ * @returns 
+ */
+export function genNewImageFilename(fileName: string) {
+    const indexOfDot = fileName.indexOf(".");
+    const fileNameWithoutDot = fileName.slice(0, indexOfDot);
+    return `${fileNameWithoutDot}_new.png`;
+}
+
+/**
+ * 
+ * @param fileName 
+ * @returns 
+ */
+export function genHeatmapFileName(fileName: string) {
+    const indexOfDot = fileName.indexOf(".");
+    const fileNameWithoutDot = fileName.slice(0, indexOfDot);
+    return `${fileNameWithoutDot}_heatmap.png`;
+}

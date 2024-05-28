@@ -1,0 +1,7 @@
+node_modules
+screenshots
+logs
+*.log
+*.png
+*.dmqas.ts
+configs

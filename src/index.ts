@@ -1,20 +1,28 @@
 import type { Browser, Page } from 'puppeteer'
-import { readConfigfileAndValidateSchema, setupBrowser, setupPage, sleep } from './util';
+import { handleErrors, setupBrowser, setupPage, sleep } from './util';
 import { ACTIONS, Action, ClickHTMLElementAction, DelayAction, ElementExistsAction, PageExitAction, ScreenshotAction, ScrollAction, WaitForNetworkIdleAction } from './models/Actions';
 import { createLogger } from './util';
 import winston from 'winston';
-
-import { Flow } from './validations'
 import { args } from './cliParser';
-import { z } from 'zod'
+import fs from 'fs'
+import path from 'path';
+import { iConfig, iFlow } from './models/configFile';
+import resultHandler from './ResultHandler';
 
-async function doSomething(page: Page, a: any[], logger: winston.Logger) {
+async function doSomething(page: Page, a: any[], logger: winston.Logger, flowName: string) {
     let x: Action | undefined;
 
     switch (a[0] as ACTIONS) {
         case 'ScreenshotAction':
             x = new ScreenshotAction(page, logger, a[1])
-            break;
+            const result = await x.execute();
+            if (result) {
+                resultHandler.flowFailed({
+                    name: flowName,
+                    failReason: "Screenshots do not match"
+                });
+            }
+            return;
         case 'WaitForNetworkIdleAction':
             console.log('waiting for idle network')
             x = new WaitForNetworkIdleAction(page, logger);
@@ -29,6 +37,9 @@ async function doSomething(page: Page, a: any[], logger: winston.Logger) {
             break;
         case 'PageExitAction':
             x = new PageExitAction(page, logger);
+            resultHandler.flowPassed({
+                name: flowName
+            });
             break;
         case 'ElementExistsAction':
             x = new ElementExistsAction(page, logger, a[1])
@@ -40,12 +51,30 @@ async function doSomething(page: Page, a: any[], logger: winston.Logger) {
     await x.execute()
 }
 
-async function doSomethingAgain(f: z.infer<typeof Flow>, logger: winston.Logger) {
+async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
     const page = await setupPage();
-    await page.goto(f.url, { timeout: 60 * 60 * 60 });
+    try {
+        await page.goto(f.url, { timeout: f.timeoutInMs ?? 0 });
+    }
+    catch (err) {
+        if (f.errHandler) f.errHandler(err, logger)
+        handleErrors(err as Error);
+        resultHandler.flowFailed({
+            name: f.name,
+            failReason: (err as Error).toString() ?? "Error in steps"
+        });
+        return;
+    }
 
     for (let k = 0; k < f.actions.length; k++) {
-        await doSomething(page, f.actions[k], logger);
+        try {
+            await doSomething(page, f.actions[k], logger, f.name);
+        }
+        catch (err) {
+            if (f.errHandler) f.errHandler(err, logger)
+            handleErrors(err as Error);
+            break;
+        }
     }
 }
 
@@ -54,15 +83,19 @@ async function main() {
     let browser: Browser;
 
     try {
-        browser = await setupBrowser({ headless: args.headless });
-        const configFile = await readConfigfileAndValidateSchema(args.config)
+        const configFile: iConfig = (await import(path.resolve(__dirname, '..', args.config))).default;
+        browser = await setupBrowser({ headless: configFile.headless });
 
         const x = [];
-        const loggers = [];
+        const loggers: winston.Logger[] = [];
+
+        if (!fs.existsSync("screenshots")) {
+            fs.mkdirSync('screenshots');
+        }
 
         for (let i = 0; i < configFile.flows.length; i++) {
             const flow = configFile.flows[i];
-            loggers.push(createLogger('info', 'app' + i + '.log'))
+            loggers.push(createLogger('info', `logs/${flow.name}.log`))
 
             x.push(doSomethingAgain(flow, loggers[i]));
         }
@@ -72,12 +105,11 @@ async function main() {
         browser.close()
     }
     catch (err) {
-        if (err instanceof z.ZodError) {
-            console.log(`File ${args.config} has an error in the schema`);
-            console.log(err.issues)
-        }
+        console.log(err)
         process.exit(1)
     }
+
+    resultHandler.printResults()
 }
 
 main()
