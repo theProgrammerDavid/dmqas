@@ -6,16 +6,20 @@ import winston from 'winston';
 import { args } from './cliParser';
 import fs from 'fs'
 import path from 'path';
-import { iConfig, iFlow } from './models/configFile';
+import { iConfig, iFlow, iAction } from './models/configFile';
 import resultHandler from './ResultHandler';
+import { setup } from './commandRunner';
 
-async function doSomething(page: Page, a: any[], logger: winston.Logger, flowName: string) {
-    let x: Action | undefined;
+async function doSomething(page: Page, a: iAction, logger: winston.Logger, flowName: string) {
+    let x: unknown;
 
-    switch (a[0] as ACTIONS) {
+    switch (a.actionType) {
         case 'ScreenshotAction':
-            x = new ScreenshotAction(page, logger, a[1])
-            const result = await x.execute();
+            x = new ScreenshotAction(page, logger);
+            (x as ScreenshotAction).setup({
+                fileName: a.fileName
+            })
+            const result = await (x as ScreenshotAction).execute();
             if (result) {
                 resultHandler.flowFailed({
                     name: flowName,
@@ -24,35 +28,65 @@ async function doSomething(page: Page, a: any[], logger: winston.Logger, flowNam
             }
             return;
         case 'WaitForNetworkIdleAction':
-            console.log('waiting for idle network')
-            x = new WaitForNetworkIdleAction(page, logger);
+            console.log('waiting for idle network');
+            (x as WaitForNetworkIdleAction) = new WaitForNetworkIdleAction(page, logger);
             break;
         case 'DelayAction':
-            console.log('delaying')
-            x = new DelayAction(page, logger)
+            console.log('delaying');
+            x = new DelayAction(page, logger);
+            (x as DelayAction).setup({
+                delay: a.delay
+            })
             break;
         case 'ClickHTMLElementAction':
-            console.log('clicking button')
-            x = new ClickHTMLElementAction(page, logger, a[1]);
+            console.log('clicking button');
+            (x as ClickHTMLElementAction) = new ClickHTMLElementAction(page, logger);
+            (x as ClickHTMLElementAction).setup({
+                element: a.element
+            })
             break;
         case 'PageExitAction':
-            x = new PageExitAction(page, logger);
+            (x as PageExitAction) = new PageExitAction(page, logger);
             resultHandler.flowPassed({
                 name: flowName
             });
             break;
         case 'ElementExistsAction':
-            x = new ElementExistsAction(page, logger, a[1])
+            (x as ElementExistsAction) = new ElementExistsAction(page, logger);
+            (x as ElementExistsAction).setup({
+                element: a.element
+            })
             break;
         case 'ScrollAction':
-            x = new ScrollAction(page, logger, a[1])
+            (x as ScrollAction) = new ScrollAction(page, logger);
+            (x as ScrollAction).setup({
+                deltaY: a.deltaY
+            })
             break;
     };
-    await x.execute()
+    await (x as Action).execute()
 }
 
 async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
     const page = await setupPage();
+    page.setViewport({
+        height: f.height,
+        width: f.width
+    });
+
+    // if (f.requestInterceptor) {
+    //     await page.setRequestInterception(true);
+    //     page.on('request', interceptedRequest => {
+    //         if (interceptedRequest.isInterceptResolutionHandled()) return;
+    //         console.log(interceptedRequest.response())
+
+
+    //         // cleanup
+    //         if (interceptedRequest.isInterceptResolutionHandled()) return;
+    //         interceptedRequest.continue();
+    //     });
+    // }
+
     try {
         await page.goto(f.url, { timeout: f.timeoutInMs ?? 0 });
     }
@@ -73,6 +107,10 @@ async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
         catch (err) {
             if (f.errHandler) f.errHandler(err, logger)
             handleErrors(err as Error);
+            resultHandler.flowFailed({
+                name: f.name,
+                failReason: (err as Error).toString() ?? "Error in steps"
+            });
             break;
         }
     }
@@ -80,6 +118,8 @@ async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
 
 async function main() {
 
+    await setup();
+    
     let browser: Browser;
 
     try {

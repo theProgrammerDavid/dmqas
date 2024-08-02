@@ -1,9 +1,10 @@
 import { Page } from "puppeteer";
 import type { Logger } from "winston";
-import { extractDomain, genHeatmapFileName, genNewImageFilename, sleep } from "../util";
+import { extractDomain, genHeatmapFileName, genNewImageFilename, pageContainsHTMLElement, sleep } from "../util";
 import fs from 'fs'
 import path from 'path'
 import { spawnImageDiff } from "../commandRunner";
+import { SelectorNotFound } from "./Errors";
 
 export type ACTIONS = "WaitForNetworkIdleAction"
     | "ScreenshotAction"
@@ -13,11 +14,34 @@ export type ACTIONS = "WaitForNetworkIdleAction"
     | "ElementExistsAction"
     | "ScrollAction"
 
-export interface iAction {
+interface iAction {
     page: Page
     logger: Logger
 
     execute: <T>(...args: any[]) => Promise<T>
+    setup: (args: iActionExecuteArgs) => void
+}
+
+export interface iActionExecuteArgs { }
+
+export interface iScreenshotActionArgs extends iActionExecuteArgs {
+    fileName: string;
+}
+
+export interface iDelayActionArgs extends iActionExecuteArgs {
+    delay: number
+}
+
+export interface iClickHTMLElementActionArgs extends iActionExecuteArgs {
+    element: string;
+}
+
+export interface iElementExistsActionArgs extends iActionExecuteArgs {
+    element: string;
+}
+
+export interface iScrollActionArgs extends iActionExecuteArgs {
+    deltaY: number;
 }
 
 export class Action implements iAction {
@@ -28,6 +52,9 @@ export class Action implements iAction {
         this.page = page;
         this.logger = logger;
     }
+    setup(args: iActionExecuteArgs) {
+
+    };
 
     execute<T>(...args: any[]): Promise<T> {
         throw new Error("You must specify the type T for execute method.");
@@ -47,8 +74,13 @@ export class WaitForNetworkIdleAction extends Action {
 
 export class ScreenshotAction extends Action {
     fileName: string;
-    constructor(page: Page, logger: Logger, fileName: string) {
+
+    constructor(page: Page, logger: Logger) {
         super(page, logger)
+        this.fileName = "";
+    }
+
+    setup({ fileName }: iScreenshotActionArgs) {
         this.fileName = fileName;
     }
 
@@ -72,7 +104,7 @@ export class ScreenshotAction extends Action {
                 y,
                 z
             ) as string;
-            
+
             return output.trim() === 'non zero diff found: true';
         }
         else {
@@ -87,6 +119,12 @@ export class ScreenshotAction extends Action {
 export class DelayAction extends Action {
     constructor(page: Page, logger: Logger) {
         super(page, logger)
+        this.delay = 0;
+    }
+    delay: number;
+
+    setup({ delay }: iDelayActionArgs) {
+        this.delay = delay;
     }
 
     async execute(delay: number): Promise<any> {
@@ -98,22 +136,41 @@ export class DelayAction extends Action {
 export class ClickHTMLElementAction extends Action {
     htmlSelector: string;
 
-    constructor(page: Page, logger: Logger, element: string) {
+    constructor(page: Page, logger: Logger) {
         super(page, logger);
+        this.htmlSelector = "";
+    }
 
+    setup({ element }: iClickHTMLElementActionArgs): void {
         this.htmlSelector = element;
     }
 
     async execute(): Promise<any> {
-        const frame = await this.page.waitForSelector(this.htmlSelector);
-        const offset = { x: 213 + 5, y: 11 + 5 };
-        const rect = await this.page.evaluate(el => {
-            const { x, y } = el!.getBoundingClientRect();
-            return { x, y };
-        }, frame)
+        const pageHasElement = await pageContainsHTMLElement(this.page, this.htmlSelector);
+        if (!pageHasElement) {
+            // this.logger.error();
+            throw new SelectorNotFound(`page ${this.page.url} does not contain selector ${this.htmlSelector}`)
+        }
+
+        // await Promise.all([
+        //     this.page.click(this.htmlSelector, {
+        //         delay: 10
+        //     }),
+        //     this.page.waitForNavigation({
+        //         waitUntil: 'networkidle2'
+        //     })
+        // ])
+
+        // const frame = await this.page.waitForSelector(this.htmlSelector);
+        // const offset = { x: 213 + 5, y: 11 + 5 };
+        // const rect = await this.page.evaluate(el => {
+        //     const { x, y } = el!.getBoundingClientRect();
+        //     return { x, y };
+        // }, frame)
 
         await Promise.all([
-            this.page.mouse.click(rect.x + offset.x, rect.y + offset.y),
+            // this.page.mouse.click(rect.x + offset.x, rect.y + offset.y),
+            this.page.$eval(this.htmlSelector, element => (element as any).click()),
             this.page.waitForNavigation({
                 waitUntil: 'networkidle2'
             })
@@ -136,10 +193,15 @@ export class PageExitAction extends Action {
 
 export class ElementExistsAction extends Action {
     elementSelector: string
-    constructor(page: Page, logger: Logger, elementSelector: string) {
+
+    constructor(page: Page, logger: Logger) {
         super(page, logger);
 
-        this.elementSelector = elementSelector;
+        this.elementSelector = "";
+    }
+
+    setup({ element }: iElementExistsActionArgs): void {
+        this.elementSelector = element;
     }
 
     async execute(): Promise<any> {
@@ -154,10 +216,14 @@ export class ElementExistsAction extends Action {
 export class ScrollAction extends Action {
     scrollDeltaY: number
 
-    constructor(page: Page, logger: Logger, scrollDeltaY: number) {
+    constructor(page: Page, logger: Logger) {
         super(page, logger);
 
-        this.scrollDeltaY = scrollDeltaY
+        this.scrollDeltaY = 0;
+    }
+
+    setup({ deltaY }: iScrollActionArgs): void {
+        this.scrollDeltaY = deltaY;
     }
 
     async execute(): Promise<any> {

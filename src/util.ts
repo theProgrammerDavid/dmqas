@@ -131,3 +131,19 @@ export function genHeatmapFileName(fileName: string) {
     const fileNameWithoutDot = fileName.slice(0, indexOfDot);
     return `${fileNameWithoutDot}_heatmap.png`;
 }
+
+/**
+ * 
+ * @param page 
+ * @param selector 
+ */
+export async function pageContainsHTMLElement(page: Page, selector: string): Promise<boolean> {
+
+    // let s = await page.evaluate(() => {
+    //     let el = document.querySelector(selector) as HTMLElement
+    //     return el ? el.innerText : ""
+    // }, selector)
+
+    const selectorElement = await page.$(selector);
+    return Boolean(selectorElement);
+}

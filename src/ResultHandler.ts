@@ -33,6 +33,9 @@ class ResultHandler {
     printResults() {
         console.log(chalk.bold('Test Results:\n'));
 
+        console.log(this.passedFlows);
+        console.log(this.failedFlows)
+
         if (this.passedFlows.length > 0) {
             console.log(chalk.green('Passed Flows:'));
             this.passedFlows.forEach(flow => {
@@ -44,7 +47,7 @@ class ResultHandler {
         if (this.failedFlows.length > 0) {
             console.log(chalk.red('Failed Flows:'));
             this.failedFlows.forEach(flow => {
-                console.log(chalk.red(`✘ ${flow.name}`));
+                console.log(chalk.red(`✘ ${flow.name} - ${flow.failReason}`));
             });
         } else {
             console.log(chalk.green('No failed flows.'));
