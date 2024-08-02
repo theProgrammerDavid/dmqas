@@ -14,6 +14,7 @@ export interface iFlow {
     url: string;
     name: string;
     width: number;
+    browsers: iBrowser
     height: number;
     logLevel: LOG_LEVEL,
     actions: iAction[];
@@ -39,3 +40,7 @@ export type ActionType<T extends ACTIONS> = {
 export type iAction = {
     [T in ACTIONS]: ActionType<T>;
 }[ACTIONS];
+
+export type iBrowserType = 'CHROMIUM' | 'FIREFOX' | 'WEBKIT'
+
+export type iBrowser = Record<iBrowserType, boolean>

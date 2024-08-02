@@ -1,4 +1,5 @@
-import { Page } from "puppeteer";
+// import { Page } from "puppeteer";
+import { Page } from 'playwright'
 import type { Logger } from "winston";
 import { extractDomain, genHeatmapFileName, genNewImageFilename, pageContainsHTMLElement, sleep } from "../util";
 import fs from 'fs'
@@ -68,7 +69,7 @@ export class WaitForNetworkIdleAction extends Action {
 
     async execute(): Promise<any> {
         this.logger.info("waiting for network idle")
-        return this.page.waitForNetworkIdle();
+        return this.page.waitForNavigation();
     }
 }
 
@@ -172,7 +173,7 @@ export class ClickHTMLElementAction extends Action {
             // this.page.mouse.click(rect.x + offset.x, rect.y + offset.y),
             this.page.$eval(this.htmlSelector, element => (element as any).click()),
             this.page.waitForNavigation({
-                waitUntil: 'networkidle2'
+                waitUntil: 'networkidle'
             })
         ])
         this.logger.info('click action done, waiting for networkIdle')
@@ -228,6 +229,6 @@ export class ScrollAction extends Action {
 
     async execute(): Promise<any> {
         this.logger.info(`scrolling ${this.scrollDeltaY}`)
-        await this.page.mouse.wheel({ deltaY: this.scrollDeltaY })
+        await this.page.mouse.wheel(this.scrollDeltaY, 0);
     }
 }

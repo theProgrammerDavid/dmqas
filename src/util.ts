@@ -1,13 +1,17 @@
-import { Browser, Page } from 'puppeteer';
+// import { Page } from 'puppeteer';
 import puppeteer from 'puppeteer-extra';
 import stealthPlugin from 'puppeteer-extra-plugin-stealth';
 import winston from 'winston';
 import fs from 'fs/promises'
 import { Config } from './validations';
+import { chromium, firefox, webkit, Browser, Page } from 'playwright'
+import { iBrowserType } from './models/configFile';
 
 puppeteer.use(stealthPlugin());
 
-let browser: Browser;
+let chromiumBrowser: Browser;
+let firefoxBrowser: Browser;
+let webkitBrowser: Browser;
 
 interface iSetupBrowser {
     headless: boolean;
@@ -25,17 +29,61 @@ interface iSetupBrowser {
 export async function setupBrowser(
     { headless, customView, timeout }: iSetupBrowser
 ) {
-    browser = await puppeteer.launch({
+    // browser = await puppeteer.launch({
+    //     headless,
+    //     timeout: 50000,
+    // });
+
+    // return browser
+    chromiumBrowser = await chromium.launch({
         headless,
-        timeout: 50000,
+        timeout: 50000
     });
 
-    return browser
+    firefoxBrowser = await firefox.launch({
+        headless,
+        timeout: 50000
+    });
+
+    webkitBrowser = await webkit.launch({
+        headless,
+        timeout: 50000
+    });
+
+    return {
+        chromiumBrowser, firefoxBrowser, webkitBrowser
+    }
 }
 
-export async function setupPage() {
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 5.1; rv:5.0) Gecko/20100101 Firefox/5.0')
+export async function setupPage(browser: Browser, width: number, height: number) {
+    // const page = await browser.newPage();
+    // await page.setUserAgent('Mozilla/5.0 (Windows NT 5.1; rv:5.0) Gecko/20100101 Firefox/5.0')
+
+    // return page;
+
+    const context = await browser.newContext({
+        viewport: {
+            width, height
+        },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    });
+    const page = await context.newPage();
+
+    // Modify various properties to hide automation
+    await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => false,
+        });
+        (window.navigator as any).chrome = {
+            runtime: {},
+        };
+        Object.defineProperty(navigator, 'languages', {
+            get: () => ['en-US', 'en'],
+        });
+        Object.defineProperty(navigator, 'plugins', {
+            get: () => [1, 2, 3, 4, 5],
+        });
+    });
 
     return page;
 }

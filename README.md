@@ -12,6 +12,7 @@ Install my-project with npm
 ```bash
   cd dmqas
   pnpm install
+  pnpm exec playwright install
   pnpm run start --config ./configs/config.dmqas.ts
 ```
 

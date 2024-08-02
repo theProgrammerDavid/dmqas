@@ -1,4 +1,4 @@
-import type { Browser, Page } from 'puppeteer'
+// import type { Browser, Page } from 'puppeteer'
 import { handleErrors, setupBrowser, setupPage, sleep } from './util';
 import { ACTIONS, Action, ClickHTMLElementAction, DelayAction, ElementExistsAction, PageExitAction, ScreenshotAction, ScrollAction, WaitForNetworkIdleAction } from './models/Actions';
 import { createLogger } from './util';
@@ -9,8 +9,9 @@ import path from 'path';
 import { iConfig, iFlow, iAction } from './models/configFile';
 import resultHandler from './ResultHandler';
 import { setup } from './commandRunner';
+import { Browser, Page } from 'playwright'
 
-async function doSomething(page: Page, a: iAction, logger: winston.Logger, flowName: string) {
+async function doAction(page: Page, a: iAction, logger: winston.Logger, flowName: string) {
     let x: unknown;
 
     switch (a.actionType) {
@@ -67,12 +68,8 @@ async function doSomething(page: Page, a: iAction, logger: winston.Logger, flowN
     await (x as Action).execute()
 }
 
-async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
-    const page = await setupPage();
-    page.setViewport({
-        height: f.height,
-        width: f.width
-    });
+async function doFlow(f: iFlow, logger: winston.Logger, browser: Browser) {
+    const page = await setupPage(browser, f.width, f.height);
 
     // if (f.requestInterceptor) {
     //     await page.setRequestInterception(true);
@@ -102,7 +99,7 @@ async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
 
     for (let k = 0; k < f.actions.length; k++) {
         try {
-            await doSomething(page, f.actions[k], logger, f.name);
+            await doAction(page, f.actions[k], logger, f.name);
         }
         catch (err) {
             if (f.errHandler) f.errHandler(err, logger)
@@ -116,33 +113,67 @@ async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
     }
 }
 
+async function runStuff(
+    configFile: iConfig,
+    chromiumBrowser: Browser,
+    firefoxBrowser: Browser,
+    webkitBrowser: Browser
+) {
+    const chromiumBrowserQueue: Array<Promise<void>> = [];
+    const firefoxBrowserQueue: Array<Promise<void>> = [];
+    const webkitBrowserQueue: Array<Promise<void>> = [];
+
+    const loggers: winston.Logger[] = [];
+
+    if (!fs.existsSync("screenshots")) {
+        fs.mkdirSync('screenshots');
+    }
+
+    for (let i = 0; i < configFile.flows.length; i++) {
+        const flow = configFile.flows[i];
+        loggers.push(createLogger('info', `logs/${flow.name}.log`))
+
+        if (flow.browsers.CHROMIUM) {
+            chromiumBrowserQueue.push(doFlow(flow, loggers[i], chromiumBrowser))
+        }
+
+        if (flow.browsers.FIREFOX) {
+            firefoxBrowserQueue.push(doFlow(flow, loggers[i], firefoxBrowser))
+        }
+
+        if (flow.browsers.WEBKIT) {
+            webkitBrowserQueue.push(doFlow(flow, loggers[i], webkitBrowser))
+        }
+
+        // x.push(doFlow(flow, loggers[i], browser));
+    }
+
+    await Promise.all([
+        ...chromiumBrowserQueue,
+        ...firefoxBrowserQueue,
+        ...webkitBrowserQueue
+    ])
+}
+
 async function main() {
 
     await setup();
-    
+
     let browser: Browser;
 
     try {
         const configFile: iConfig = (await import(path.resolve(__dirname, '..', args.config))).default;
-        browser = await setupBrowser({ headless: configFile.headless });
+        const { chromiumBrowser, firefoxBrowser, webkitBrowser } = await setupBrowser({ headless: configFile.headless });
 
-        const x = [];
-        const loggers: winston.Logger[] = [];
+        await runStuff(configFile, chromiumBrowser, firefoxBrowser, webkitBrowser)
 
-        if (!fs.existsSync("screenshots")) {
-            fs.mkdirSync('screenshots');
-        }
+        // await Promise.all([chromiumBrowser, firefoxBrowser, webkitBrowser].map(async browser => {
+        //     runStuff(configFile, browser)
+        // }))
 
-        for (let i = 0; i < configFile.flows.length; i++) {
-            const flow = configFile.flows[i];
-            loggers.push(createLogger('info', `logs/${flow.name}.log`))
-
-            x.push(doSomethingAgain(flow, loggers[i]));
-        }
-
-        await Promise.all(x)
-
-        browser.close()
+        chromiumBrowser.close()
+        firefoxBrowser.close()
+        webkitBrowser.close()
     }
     catch (err) {
         console.log(err)
