@@ -1,11 +1,19 @@
 import { Page } from "puppeteer";
 import type { Logger } from "winston";
-import { extractDomain, genHeatmapFileName, genNewImageFilename, pageContainsHTMLElement, sleep } from "../util";
+import { extractDomain, genHeatmapFileName, genNewImageFilename, pageContainsHTMLElement, sleep } from "./util";
 import fs from 'fs'
 import path from 'path'
-import { spawnImageDiff } from "../commandRunner";
-import { SelectorNotFound } from "./Errors";
-import { args } from "../cliParser";
+import { spawnImageDiff } from "./commandRunner";
+import { SelectorNotFound } from "./models/Errors";
+import { args } from "./cliParser";
+import {
+    iActionExecuteArgs,
+    iClickHTMLElementActionArgs,
+    iDelayActionArgs,
+    iElementExistsActionArgs,
+    iScreenshotActionArgs,
+    iScrollActionArgs
+} from './models'
 
 export type ACTIONS = "WaitForNetworkIdleAction"
     | "ScreenshotAction"
@@ -23,27 +31,6 @@ interface iAction {
     setup: (args: iActionExecuteArgs) => void
 }
 
-export interface iActionExecuteArgs { }
-
-export interface iScreenshotActionArgs extends iActionExecuteArgs {
-    fileName: string;
-}
-
-export interface iDelayActionArgs extends iActionExecuteArgs {
-    delay: number
-}
-
-export interface iClickHTMLElementActionArgs extends iActionExecuteArgs {
-    element: string;
-}
-
-export interface iElementExistsActionArgs extends iActionExecuteArgs {
-    element: string;
-}
-
-export interface iScrollActionArgs extends iActionExecuteArgs {
-    deltaY: number;
-}
 
 export class Action implements iAction {
     page: Page;

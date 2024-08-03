@@ -1,6 +1,6 @@
 import type { Browser, Page } from 'puppeteer'
 import { handleErrors, setupBrowser, setupPage, sleep } from './util';
-import { ACTIONS, Action, ClickHTMLElementAction, DelayAction, ElementExistsAction, PageExitAction, ScreenshotAction, ScrollAction, WaitForNetworkIdleAction } from './models/Actions';
+import { ACTIONS, Action, ClickHTMLElementAction, DelayAction, ElementExistsAction, PageExitAction, ScreenshotAction, ScrollAction, WaitForNetworkIdleAction } from './Actions';
 import { createLogger } from './util';
 import winston from 'winston';
 import { args } from './cliParser';

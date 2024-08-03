@@ -1,5 +1,13 @@
 import { HTTPRequest, HTTPResponse } from "puppeteer";
-import { ACTIONS, Action, iActionExecuteArgs, iClickHTMLElementActionArgs, iDelayActionArgs, iElementExistsActionArgs, iScreenshotActionArgs, iScrollActionArgs } from "./Actions";
+import { ACTIONS, Action } from "../Actions";
+import {
+    iActionExecuteArgs,
+    iClickHTMLElementActionArgs,
+    iDelayActionArgs,
+    iElementExistsActionArgs,
+    iScreenshotActionArgs,
+    iScrollActionArgs
+} from '.'
 import winston from 'winston';
 
 export interface iConfig {
