@@ -1,4 +1,4 @@
-import { HTTPRequest } from "puppeteer";
+import { HTTPRequest, HTTPResponse } from "puppeteer";
 import { ACTIONS, Action, iActionExecuteArgs, iClickHTMLElementActionArgs, iDelayActionArgs, iElementExistsActionArgs, iScreenshotActionArgs, iScrollActionArgs } from "./Actions";
 import winston from 'winston';
 
@@ -20,6 +20,7 @@ export interface iFlow {
     timeoutInMs?: number; // if timeout, error will be thrown if page loading exceeds
     errHandler?: (err: any, logger: winston.Logger) => void;
     requestInterceptor?: (req: HTTPRequest) => void;
+    responseInterceptor?: (res: HTTPResponse) => void;
 }
 
 export type ActionArgsMap = {

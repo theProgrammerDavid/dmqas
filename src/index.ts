@@ -74,18 +74,19 @@ async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
         width: f.width
     });
 
-    // if (f.requestInterceptor) {
-    //     await page.setRequestInterception(true);
-    //     page.on('request', interceptedRequest => {
-    //         if (interceptedRequest.isInterceptResolutionHandled()) return;
-    //         console.log(interceptedRequest.response())
+    await page.setRequestInterception(true);
+    page.on('request', request => {
+        if (f.requestInterceptor) {
+            f.requestInterceptor(request)
+        }
+        request.continue();
+    });
 
-
-    //         // cleanup
-    //         if (interceptedRequest.isInterceptResolutionHandled()) return;
-    //         interceptedRequest.continue();
-    //     });
-    // }
+    page.on('response', async response => {
+        if (f.responseInterceptor && response.headers()['Content-Length'] !== '0') {
+            f.responseInterceptor(response);
+        }
+    });
 
     try {
         await page.goto(f.url, { timeout: f.timeoutInMs ?? 0 });
@@ -119,7 +120,7 @@ async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
 async function main() {
 
     await setup();
-    
+
     let browser: Browser;
 
     try {
@@ -131,6 +132,9 @@ async function main() {
 
         if (!fs.existsSync("screenshots")) {
             fs.mkdirSync('screenshots');
+            fs.mkdirSync('screenshots/originals', { recursive: true });
+            fs.mkdirSync('screenshots/new', { recursive: true });
+            fs.mkdirSync('screenshots/heatmaps', { recursive: true });
         }
 
         for (let i = 0; i < configFile.flows.length; i++) {

@@ -28,6 +28,10 @@ export const CliArgs = z.object({
         required_error: "headless is required",
         invalid_type_error: "headless must be a boolean",
     }),
+    updateScreenshots: z.boolean({
+        // required_error: "headless is required",
+        invalid_type_error: "updateScreenshots must be a boolean",
+    }),
     config: z.string({
         required_error: "config is required",
         invalid_type_error: "config must be a string",

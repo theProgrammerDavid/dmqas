@@ -5,6 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import { spawnImageDiff } from "../commandRunner";
 import { SelectorNotFound } from "./Errors";
+import { args } from "../cliParser";
 
 export type ACTIONS = "WaitForNetworkIdleAction"
     | "ScreenshotAction"
@@ -85,32 +86,38 @@ export class ScreenshotAction extends Action {
     }
 
     async execute(): Promise<any> {
-        let filePath = `screenshots/${this.fileName}`
-        const resolvePath = path.resolve(__dirname, '..', '..', filePath)
-        if (fs.existsSync(resolvePath)) {
-            console.log('screenshot exists, comparing');
+        let filePath = `screenshots/originals/${this.fileName}`;
+        const resolvePath = path.resolve(__dirname, '..', '..', filePath);
 
-            const newFilePath = genNewImageFilename(`screenshots/${this.fileName}`)
-            const heatmapFilePath = genHeatmapFileName(`screenshots/${this.fileName}`)
-
-            await this.page.screenshot({ path: newFilePath })
-
-            const x = path.resolve(__dirname, '..', '..', filePath);
-            const y = path.resolve(__dirname, '..', '..', newFilePath)
-            const z = path.resolve(__dirname, '..', '..', heatmapFilePath)
-
-            const output = await spawnImageDiff(
-                x,
-                y,
-                z
-            ) as string;
-
-            return output.trim() === 'non zero diff found: true';
+        if (args.updateScreenshots) {
+            await this.page.screenshot({ path: filePath })
         }
         else {
-            this.logger.info('taking screenshot');
-            await this.page.screenshot({ path: filePath })
+            if (fs.existsSync(resolvePath)) {
+                console.log('screenshot exists, comparing');
 
+                const newFilePath = genNewImageFilename(`screenshots/new/${this.fileName}`)
+                const heatmapFilePath = genHeatmapFileName(`screenshots/heatmaps/${this.fileName}`)
+
+                await this.page.screenshot({ path: newFilePath })
+
+                const x = path.resolve(__dirname, '..', '..', filePath);
+                const y = path.resolve(__dirname, '..', '..', newFilePath)
+                const z = path.resolve(__dirname, '..', '..', heatmapFilePath)
+
+                const output = await spawnImageDiff(
+                    x,
+                    y,
+                    z
+                ) as string;
+
+                return output.trim() === 'non zero diff found: true';
+            }
+            else {
+                this.logger.info('taking screenshot');
+                await this.page.screenshot({ path: filePath })
+
+            }
         }
         return;
     }
