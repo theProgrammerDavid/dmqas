@@ -73,8 +73,8 @@ export class ScreenshotAction extends Action {
     }
 
     async execute(): Promise<any> {
-        let filePath = `screenshots/originals/${this.fileName}`;
-        const resolvePath = path.resolve(__dirname, '..', '..', filePath);
+        const filePath = `screenshots/originals/${this.fileName}`;
+        const resolvePath = path.resolve(__dirname, '..', filePath);
 
         if (args.updateScreenshots) {
             await this.page.screenshot({ path: filePath })
@@ -88,9 +88,9 @@ export class ScreenshotAction extends Action {
 
                 await this.page.screenshot({ path: newFilePath })
 
-                const x = path.resolve(__dirname, '..', '..', filePath);
-                const y = path.resolve(__dirname, '..', '..', newFilePath)
-                const z = path.resolve(__dirname, '..', '..', heatmapFilePath)
+                const x = path.resolve(__dirname, '..', filePath);
+                const y = path.resolve(__dirname, '..', newFilePath)
+                const z = path.resolve(__dirname, '..', heatmapFilePath)
 
                 const output = await spawnImageDiff(
                     x,
