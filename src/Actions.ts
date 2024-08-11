@@ -3,15 +3,17 @@ import type { Logger } from "winston";
 import { extractDomain, genHeatmapFileName, genNewImageFilename, pageContainsHTMLElement, sleep } from "./util";
 import fs from 'fs'
 import path from 'path'
-import { spawnImageDiff } from "./commandRunner";
+import commandRunner from "./commandRunner";
 import { SelectorNotFound } from "./models/Errors";
 import { args } from "./cliParser";
 import {
     iActionExecuteArgs,
     iClickHTMLElementActionArgs,
     iDelayActionArgs,
+    iDiffImageResult,
     iElementExistsActionArgs,
     iScreenshotActionArgs,
+    iScreenshotOptions,
     iScrollActionArgs
 } from './models'
 
@@ -62,10 +64,12 @@ export class WaitForNetworkIdleAction extends Action {
 
 export class ScreenshotAction extends Action {
     fileName: string;
+    config: iScreenshotOptions;
 
-    constructor(page: Page, logger: Logger) {
+    constructor(page: Page, logger: Logger, config: iScreenshotOptions) {
         super(page, logger)
         this.fileName = "";
+        this.config = config;
     }
 
     setup({ fileName }: iScreenshotActionArgs) {
@@ -92,13 +96,18 @@ export class ScreenshotAction extends Action {
                 const y = path.resolve(__dirname, '..', newFilePath)
                 const z = path.resolve(__dirname, '..', heatmapFilePath)
 
-                const output = await spawnImageDiff(
+                const output = await commandRunner.spawnImageDiff(
                     x,
                     y,
-                    z
+                    z,
+                    this.config
                 ) as string;
+                console.log(output.trim())
 
-                return output.trim() === 'non zero diff found: true';
+                const result = JSON.parse(output.trim()) as iDiffImageResult;
+
+                return result.non_zero_diff_found;
+                // return  === 'non zero diff found: true';
             }
             else {
                 this.logger.info('taking screenshot');

@@ -8,14 +8,15 @@ import fs from 'fs'
 import path from 'path';
 import { iConfig, iFlow, iAction } from './models/configFile';
 import resultHandler from './ResultHandler';
-import { setup } from './commandRunner';
+import commandRunner from './commandRunner';
+import { iScreenshotOptions } from './models';
 
-async function doSomething(page: Page, a: iAction, logger: winston.Logger, flowName: string) {
+async function doSomething(page: Page, a: iAction, logger: winston.Logger, flowName: string, extras: iScreenshotOptions) {
     let x: unknown;
 
     switch (a.actionType) {
         case 'ScreenshotAction':
-            x = new ScreenshotAction(page, logger);
+            x = new ScreenshotAction(page, logger, extras);
             (x as ScreenshotAction).setup({
                 fileName: a.fileName
             })
@@ -103,7 +104,9 @@ async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
 
     for (let k = 0; k < f.actions.length; k++) {
         try {
-            await doSomething(page, f.actions[k], logger, f.name);
+            await doSomething(page, f.actions[k], logger, f.name, {
+                ...f.screenshotOptions
+            });
         }
         catch (err) {
             if (f.errHandler) f.errHandler(err, logger)
@@ -119,7 +122,7 @@ async function doSomethingAgain(f: iFlow, logger: winston.Logger) {
 
 async function main() {
 
-    await setup();
+    await commandRunner.init();
 
     let browser: Browser;
 

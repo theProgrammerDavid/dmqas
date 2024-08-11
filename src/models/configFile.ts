@@ -6,6 +6,7 @@ import {
     iDelayActionArgs,
     iElementExistsActionArgs,
     iScreenshotActionArgs,
+    iScreenshotOptions,
     iScrollActionArgs
 } from '.'
 import winston from 'winston';
@@ -25,6 +26,7 @@ export interface iFlow {
     height: number;
     logLevel: LOG_LEVEL,
     actions: iAction[];
+    screenshotOptions: iScreenshotOptions;
     timeoutInMs?: number; // if timeout, error will be thrown if page loading exceeds
     errHandler?: (err: any, logger: winston.Logger) => void;
     requestInterceptor?: (req: HTTPRequest) => void;

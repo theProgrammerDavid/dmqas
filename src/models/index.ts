@@ -19,3 +19,16 @@ export interface iElementExistsActionArgs extends iActionExecuteArgs {
 export interface iScrollActionArgs extends iActionExecuteArgs {
     deltaY: number;
 }
+
+
+export type tPlatform = 'windows' | 'linux' | 'macos';
+
+export interface iDiffImageResult {
+    non_zero_diff_found: boolean;
+    pixels_changed: number;
+}
+
+export interface iScreenshotOptions {
+    heatmapOpacity: number
+
+}
